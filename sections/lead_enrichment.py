@@ -270,8 +270,8 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
                         elif 'api_enrichment_error' in row:
                             st.error(f"❌ Row {row_index}: {company_name} - Failed")
         
-        # Small delay to show progress (remove in production)
-        time.sleep(0.1)
+        # # Small delay to show progress (remove in production)
+        # time.sleep(0.1)
     
     # Final completion message
     status_text.text(f"✅ Batch enrichment completed! {successful_enrichments} successful, {failed_enrichments} failed, {skipped_enrichments} skipped")

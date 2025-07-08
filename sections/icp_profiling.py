@@ -161,7 +161,7 @@ def show_icp_profiling():
     
     # Check if workflow data is available
     metadata = get_workflow_metadata()
-    
+
     # Initialize session state
     if 'product_context' not in st.session_state:
         st.session_state.product_context = DEFAULT_PRODUCT_CONTEXT
@@ -187,7 +187,7 @@ def show_icp_profiling():
     
     # ICP Configuration Section
     st.markdown("### ⚙️ ICP Configuration")
-    
+
     st.markdown("**Product Context**")
     product_context = st.text_area(
         "Describe your product/service:",
@@ -209,7 +209,7 @@ def show_icp_profiling():
         help="Describe your ideal customer including company size, industry, pain points, and decision makers",
         key="target_icp_input"
     )
-    
+
     if st.button("🔄 Reset to Default", type="secondary", on_click=target_icp_reset, key="icp-reset"):
         pass
     
@@ -270,18 +270,39 @@ def show_icp_profiling():
             st.warning(f"⚠️ Some rows ({len(missing_enrichment_rows)}) don't have enriched data. Please run Lead Enrichment first for rows: {', '.join(map(str, missing_enrichment_rows))}")
             return
     
-    # Show ICP analysis status
-    button_disabled = False
-    button_help = None
-    
+    # Show ICP analysis status and options for existing analyses
+    re_analyze_existing = False
     if already_analyzed_count > 0:
         if already_analyzed_count == selected_count:
             st.success(f"✅ All {selected_count} rows in the selected range already have ICP analysis!")
-            button_disabled = True
-            button_help = "All selected rows already have ICP analysis"
+            
+            # Give options for re-analysis
+            col1, col2 = st.columns(2)
+            with col1:
+                re_analyze_existing = st.checkbox(
+                    "🔄 Re-analyze existing ICP data",
+                    help="Check this to re-run ICP analysis on rows that already have analysis"
+                )
+            with col2:
+                if not re_analyze_existing:
+                    st.info("Will skip all rows (already analyzed)")
+                else:
+                    st.info(f"Will re-analyze all {selected_count} rows")
         else:
-            st.warning(f"⚠️ {already_analyzed_count}/{selected_count} rows already have ICP analysis. Will process remaining {len(missing_analysis_rows)} rows.")
-            button_help = f"Will analyze {len(missing_analysis_rows)} remaining rows"
+            st.warning(f"⚠️ {already_analyzed_count}/{selected_count} rows already have ICP analysis.")
+            
+            # Give options for existing analyses
+            col1, col2 = st.columns(2)
+            with col1:
+                re_analyze_existing = st.checkbox(
+                    "🔄 Re-analyze existing ICP data",
+                    help="Check this to re-run ICP analysis on rows that already have analysis"
+                )
+            with col2:
+                if not re_analyze_existing:
+                    st.info(f"Will analyze {len(missing_analysis_rows)} new rows, skip {already_analyzed_count} existing")
+                else:
+                    st.info(f"Will re-analyze all {selected_count} rows")
     else:
         st.info(f"🔄 {selected_count} rows ready for ICP analysis")
         
@@ -294,18 +315,33 @@ def show_icp_profiling():
         st.error("❌ Target ICP definition is required!")
         return
     
+    # Determine button state and help text
+    button_disabled = False
+    button_help = None
+    
+    if selected_count <= 0:
+        button_disabled = True
+        button_help = "Please select a valid range"
+    elif already_analyzed_count == selected_count and not re_analyze_existing:
+        button_disabled = True
+        button_help = "All rows already analyzed. Check 'Re-analyze existing' to run again."
+    elif not re_analyze_existing:
+        button_help = f"Will analyze {len(missing_analysis_rows)} new rows"
+    else:
+        button_help = f"Will re-analyze all {selected_count} rows"
+
     if st.button(
         "🎯 Start ICP Analysis", 
         type="primary", 
-        disabled=selected_count <= 0 or button_disabled,
+        disabled=button_disabled,
         help=button_help
     ):
-        batch_icp_analysis(start_index, end_index, product_context, target_icp)
+        batch_icp_analysis(start_index, end_index, product_context, target_icp, re_analyze_existing)
     
     st.markdown("---")
 
 
-def batch_icp_analysis(start_index: int, end_index: int, product_context: str, target_icp: str):
+def batch_icp_analysis(start_index: int, end_index: int, product_context: str, target_icp: str, re_analyze_existing: bool = False):
     """
     Process workflow data rows with ICP analysis and live progress
     
@@ -314,6 +350,7 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
         end_index (int): Ending index (inclusive)
         product_context (str): Product context for analysis
         target_icp (str): Target ICP definition
+        re_analyze_existing (bool): Whether to re-analyze rows that already have ICP analysis
     """
     # Get workflow data from session state
     workflow_data = get_workflow_data()["data"]
@@ -349,8 +386,8 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             st.session_state.workflow_data["data"][actual_index]['icp_analysis_error'] = "No enriched data available"
             continue
         
-        # Check if already analyzed
-        if 'icp_analysis' in row_data:
+        # Check if already analyzed and whether to skip or re-analyze
+        if 'icp_analysis' in row_data and not re_analyze_existing:
             skipped_analyses += 1
             continue
         
@@ -362,18 +399,23 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
         # Make ICP API request
         api_response = make_icp_api_request(enriched_lead, domain, product_context, target_icp)
         
+        # Validate API response format
+        if not isinstance(api_response, dict):
+            api_response = {"error": "Invalid API response format"}
+        
         if "error" not in api_response:
             # Process API response and store processed data in session state
             processed_data = process_icp_api_response(api_response)
             st.session_state.workflow_data["data"][actual_index]['icp_analysis'] = processed_data
             st.session_state.workflow_data["data"][actual_index]['icp_analysis_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
-            # st.session_state.workflow_data["data"][actual_index]['company']['icp_config'] = {
-            #     'product_context': product_context,
-            #     'target_icp': target_icp
-            # }
+                
+            # Remove any previous error if re-analyzing
+            if 'icp_analysis_error' in st.session_state.workflow_data["data"][actual_index]:
+                del st.session_state.workflow_data["data"][actual_index]['icp_analysis_error']
+                
             successful_analyses += 1
         else:
-            # Store error in session state
+                            # Store error in session state
             st.session_state.workflow_data["data"][actual_index]['icp_analysis_error'] = api_response['error']
             failed_analyses += 1
         
@@ -404,22 +446,33 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
                         company_name = row.get('company', {}).get('Company Name', f'Row {row_index}')
                         
                         if 'icp_analysis' in row and j == i:  # Only show status for newly processed
-                            st.success(f"✅ Row {row_index}: {company_name} - ICP Analysis Complete")
-                        elif 'icp_analysis' in row:
+                            if re_analyze_existing:
+                                st.success(f"🔄 Row {row_index}: {company_name} - ICP Analysis Re-completed")
+                            else:
+                                st.success(f"✅ Row {row_index}: {company_name} - ICP Analysis Complete")
+                        elif 'icp_analysis' in row and not re_analyze_existing:
                             st.info(f"⏭️ Row {row_index}: {company_name} - Already analyzed (skipped)")
                         elif 'icp_analysis_error' in row and row['icp_analysis_error'] == "No enriched data available":
                             st.warning(f"⏭️ Row {row_index}: {company_name} - Skipped (No enriched data)")
-                        else:
+                        elif 'icp_analysis_error' in row:
                             st.error(f"❌ Row {row_index}: {company_name} - Analysis Failed ({row.get('icp_analysis_error', 'Unknown error')})")
+                        else:
+                            st.error(f"❌ Row {row_index}: {company_name} - Analysis Failed (Unknown error)")
         
-        # Small delay to show progress
-        time.sleep(0.1)
+        # # Small delay to show progress
+        # time.sleep(0.1)
     
     # Final completion message
-    status_text.text(f"✅ ICP analysis completed! {successful_analyses} successful, {failed_analyses} failed, {skipped_analyses} skipped")
+    if re_analyze_existing and successful_analyses > 0:
+        status_text.text(f"✅ ICP re-analysis completed! {successful_analyses} re-analyzed, {failed_analyses} failed, {skipped_analyses} skipped")
+    else:
+        status_text.text(f"✅ ICP analysis completed! {successful_analyses} successful, {failed_analyses} failed, {skipped_analyses} skipped")
     
     if successful_analyses > 0:
-        st.success(f"🎉 Successfully analyzed {successful_analyses} companies against your ICP!")
+        if re_analyze_existing:
+            st.success(f"🎉 Successfully re-analyzed {successful_analyses} companies against your ICP!")
+        else:
+            st.success(f"🎉 Successfully analyzed {successful_analyses} companies against your ICP!")
         
         # Show sample of ICP analysis data
         with st.expander("View Sample ICP Analysis Results"):
@@ -427,9 +480,9 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             for i in range(total_rows):
                 row_index = start_index + i
                 if (row_index < len(st.session_state.workflow_data["data"]) and 
-                    'icp_analysis' in st.session_state.workflow_data["data"][row_index] and
-                    'icp_analysis_timestamp' in st.session_state.workflow_data["data"][row_index]):  # Only show newly analyzed
+                    'icp_analysis' in st.session_state.workflow_data["data"][row_index]):
                     
+                    # For re-analysis, show all analyzed rows; for new analysis, show all as they're all new
                     company_name = st.session_state.workflow_data["data"][row_index]['company'].get('Company Name', f'Row {row_index}')
                     icp_data = st.session_state.workflow_data["data"][row_index]['icp_analysis']
                     
@@ -450,7 +503,7 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             row_index = start_index + i
             if row_index < len(st.session_state.workflow_data["data"]):
                 row = st.session_state.workflow_data["data"][row_index]
-                if 'icp_analysis' in row and 'icp_analysis_timestamp' not in row:
+                if 'icp_analysis' in row and not re_analyze_existing:
                     already_analyzed_skipped += 1
                 elif 'icp_analysis_error' in row and row['icp_analysis_error'] == "No enriched data available":
                     no_enrichment_skipped += 1
