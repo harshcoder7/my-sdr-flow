@@ -84,7 +84,7 @@ def make_icp_api_request(enriched_lead: dict, domain: str, product_context: str,
                 'Content-Type': 'application/json',
                 'x-api-key': os.getenv('AGENT_HIVE_API_KEY', '')
             },
-            timeout=180
+            timeout=360
         )
         
         if response.status_code == 200:
@@ -146,7 +146,7 @@ def process_icp_api_response(api_response: dict) -> dict:
 
 def show_icp_profiling():
     """Display the ICP Profiling section"""
-    st.header("🎯 ICP Profiling")
+    st.header("ICP Profiling")
     st.markdown("Analyze how well your leads fit your Ideal Customer Profile")
     
     # Check if workflow data is available
@@ -164,31 +164,28 @@ def show_icp_profiling():
     
     # Show data preview
     st.success(f"✅ Workflow data loaded from {metadata['data_source']}")
-    show_data_preview()
+    
+    with st.expander("📊 View Data Preview", expanded=False):
+        show_data_preview()
     
     # ICP Configuration Section
-    st.markdown("---")
     st.markdown("### ⚙️ ICP Configuration")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**Product Context**")
-        product_context = st.text_area(
-            "Describe your product/service:",
-            value=DEFAULT_PRODUCT_CONTEXT,
-            height=200,
-            help="Provide details about your product, its features, benefits, and value proposition"
-        )
-    
-    with col2:
-        st.markdown("**Target ICP**")
-        target_icp = st.text_area(
-            "Define your Ideal Customer Profile:",
-            value=DEFAULT_TARGET_ICP,
-            height=200,
-            help="Describe your ideal customer including company size, industry, pain points, and decision makers"
-        )
+    st.markdown("**Product Context**")
+    product_context = st.text_area(
+        "Describe your product/service:",
+        value=DEFAULT_PRODUCT_CONTEXT,
+        height=300,
+        help="Provide details about your product, its features, benefits, and value proposition"
+    )
+
+    st.markdown("**Target ICP**")
+    target_icp = st.text_area(
+        "Define your Ideal Customer Profile:",
+        value=DEFAULT_TARGET_ICP,
+        height=300,
+        help="Describe your ideal customer including company size, industry, pain points, and decision makers"
+    )
     
     # Batch Processing Section
     st.markdown("---")
@@ -228,7 +225,7 @@ def show_icp_profiling():
     for i in range(start_index, end_index + 1):
         if i < total_rows:
             row_data = workflow_data["data"][i]
-            if 'enriched_lead' not in row_data.get('company', {}):
+            if 'enriched_lead' not in row_data:
                 missing_enrichment_rows.append(i)
             else:
                 has_enriched_data = True
@@ -295,10 +292,10 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
         status_text.text(f"Analyzing {i + 1}/{total_rows}: {company_name}")
         
         # Check if row has enriched data
-        enriched_lead = row_data.get('company', {}).get('enriched_lead')
+        enriched_lead = row_data.get('enriched_lead')
         if not enriched_lead:
             skipped_analyses += 1
-            st.session_state.workflow_data["data"][actual_index]['company']['icp_analysis_error'] = "No enriched data available"
+            st.session_state.workflow_data["data"][actual_index]['icp_analysis_error'] = "No enriched data available"
             continue
         
         # Get domain from company data
@@ -312,8 +309,8 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
         if "error" not in api_response:
             # Process API response and store processed data in session state
             processed_data = process_icp_api_response(api_response)
-            st.session_state.workflow_data["data"][actual_index]['company']['icp_analysis'] = processed_data
-            st.session_state.workflow_data["data"][actual_index]['company']['icp_analysis_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.workflow_data["data"][actual_index]['icp_analysis'] = processed_data
+            st.session_state.workflow_data["data"][actual_index]['icp_analysis_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
             # st.session_state.workflow_data["data"][actual_index]['company']['icp_config'] = {
             #     'product_context': product_context,
             #     'target_icp': target_icp
@@ -321,7 +318,7 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             successful_analyses += 1
         else:
             # Store error in session state
-            st.session_state.workflow_data["data"][actual_index]['company']['icp_analysis_error'] = api_response['error']
+            st.session_state.workflow_data["data"][actual_index]['icp_analysis_error'] = api_response['error']
             failed_analyses += 1
         
         # Update results display every few iterations or on completion
@@ -350,12 +347,12 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
                         row = st.session_state.workflow_data["data"][row_index]
                         company_name = row.get('company', {}).get('Company Name', f'Row {row_index}')
                         
-                        if 'icp_analysis' in row.get('company', {}):
+                        if 'icp_analysis' in row:
                             st.success(f"✅ Row {row_index}: {company_name} - ICP Analysis Complete")
-                        elif 'icp_analysis_error' in row.get('company', {}) and row['company']['icp_analysis_error'] == "No enriched data available":
+                        elif 'icp_analysis_error' in row and row['icp_analysis_error'] == "No enriched data available":
                             st.warning(f"⏭️ Row {row_index}: {company_name} - Skipped (No enriched data)")
                         else:
-                            st.error(f"❌ Row {row_index}: {company_name} - Analysis Failed")
+                            st.error(f"❌ Row {row_index}: {company_name} - Analysis Failed ({row.get('icp_analysis_error', 'Unknown error')})")
         
         # Small delay to show progress
         time.sleep(0.1)
@@ -372,15 +369,13 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             for i in range(total_rows):
                 row_index = start_index + i
                 if (row_index < len(st.session_state.workflow_data["data"]) and 
-                    'icp_analysis' in st.session_state.workflow_data["data"][row_index].get('company', {})):
+                    'icp_analysis' in st.session_state.workflow_data["data"][row_index]):
                     
                     company_name = st.session_state.workflow_data["data"][row_index]['company'].get('Company Name', f'Row {row_index}')
-                    icp_data = st.session_state.workflow_data["data"][row_index]['company']['icp_analysis']
+                    icp_data = st.session_state.workflow_data["data"][row_index]['icp_analysis']
                     
                     st.markdown(f"**{company_name}:**")
-                    if isinstance(icp_data, dict) and 'analysis_type' in icp_data and icp_data['analysis_type'] == 'text_response':
-                        st.markdown(icp_data.get('icp_analysis', 'No analysis available'))
-                    else:
+                    if isinstance(icp_data, dict):
                         st.json(icp_data)
                     
                     sample_count += 1

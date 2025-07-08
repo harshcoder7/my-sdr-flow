@@ -56,8 +56,6 @@ def make_api_request(row_data: dict) -> dict:
     except Exception as e:
         return {"error": f"Unexpected error: {str(e)}"}
 
-import json
-
 def process_api_response(api_response: dict) -> dict:
     """
     Process API response and extract relevant company data from stringified JSON block.
@@ -99,7 +97,7 @@ def process_api_response(api_response: dict) -> dict:
 
 def show_lead_enrichment():
     """Display the Lead Enrichment section"""
-    st.header("🎯 Lead Enrichment")
+    st.header("Lead Enrichment")
     st.markdown("Enrich your leads with additional data and insights")
     
     # Check if workflow data is available
@@ -117,11 +115,10 @@ def show_lead_enrichment():
     
     # Show data preview
     st.success(f"✅ Workflow data loaded from {metadata['data_source']}")
-    show_data_preview()
     
-    # Lead enrichment options
-    st.markdown("---")
-    
+    with st.expander("📊 View Data Preview", expanded=False):
+        show_data_preview()
+             
     # Batch Processing Section
     st.markdown("### 🚀 Batch API Enrichment")
     
@@ -195,12 +192,12 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
         if "error" not in api_response:
             # Process API response and store processed data in session state
             processed_data = process_api_response(api_response)
-            st.session_state.workflow_data["data"][actual_index]['company']['enriched_lead'] = processed_data
-            st.session_state.workflow_data["data"][actual_index]['company']['enrichment_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.workflow_data["data"][actual_index]['enriched_lead'] = processed_data
+            st.session_state.workflow_data["data"][actual_index]['enrichment_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
             successful_enrichments += 1
         else:
             # Store error in session state
-            st.session_state.workflow_data["data"][actual_index]['company']['api_enrichment_error'] = api_response['error']
+            st.session_state.workflow_data["data"][actual_index]['api_enrichment_error'] = api_response['error']
             failed_enrichments += 1
         
         # Update results display every few iterations or on completion
@@ -226,7 +223,7 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
                         row = st.session_state.workflow_data["data"][row_index]
                         company_name = row.get('company', {}).get('Company Name', f'Row {row_index}')
                         
-                        if 'enriched_lead' in row.get('company', {}):
+                        if 'enriched_lead' in row:
                             st.success(f"✅ Row {row_index}: {company_name} - Enriched")
                         else:
                             st.error(f"❌ Row {row_index}: {company_name} - Failed")
@@ -244,10 +241,10 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
         with st.expander("View Sample Enriched Data"):
             for i in range(min(3, successful_enrichments)):
                 row_index = start_index + i
-                if 'enriched_lead' in st.session_state.workflow_data["data"][row_index].get('company', {}):
-                    company_name = st.session_state.workflow_data["data"][row_index]['company'].get('Company Name', f'Row {row_index}')
-                    enrichment_data = st.session_state.workflow_data["data"][row_index]['company']['enriched_lead']
+                if 'enriched_lead' in st.session_state.workflow_data["data"][row_index]:
+                    enrichment_data = st.session_state.workflow_data["data"][row_index]['enriched_lead']
+                    company_name = enrichment_data.get('Company', f'Row {row_index}')
                     st.markdown(f"**{company_name}:**")
                     st.json(enrichment_data)
 
-    # st.write(get_workflow_data()["data"])
+    st.write(get_workflow_data()["data"])

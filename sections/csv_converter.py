@@ -6,7 +6,7 @@ from utils.state_manager import save_workflow_data
 
 def show_csv_converter():
     """Display the CSV to JSON converter section"""
-    st.header("📊 CSV to JSON Converter")
+    st.header("CSV to JSON Converter")
     st.markdown("Upload a CSV file and convert it to structured JSON format grouped by Company Name")
 
     # File uploader
