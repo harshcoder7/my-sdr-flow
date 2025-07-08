@@ -15,7 +15,8 @@ APP_CONFIG = {
 # Navigation Sections
 NAVIGATION_SECTIONS = [
     "CSV to JSON Converter",
-    "Lead Enrichment", 
+    "Lead Enrichment",
+    "ICP Profiling", 
 ]
 
 # CSV Converter Configuration

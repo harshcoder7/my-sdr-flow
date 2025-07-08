@@ -91,7 +91,7 @@ def process_api_response(api_response: dict) -> dict:
         }
 
     except Exception as e:
-        return {
+        return { 
             "enrichment_status": "processing_error",
             "error": f"Failed to process API response: {str(e)}",
             "raw_response": api_response
@@ -244,10 +244,10 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
         with st.expander("View Sample Enriched Data"):
             for i in range(min(3, successful_enrichments)):
                 row_index = start_index + i
-                if 'api_enrichment' in st.session_state.workflow_data["data"][row_index].get('company', {}):
+                if 'enriched_lead' in st.session_state.workflow_data["data"][row_index].get('company', {}):
                     company_name = st.session_state.workflow_data["data"][row_index]['company'].get('Company Name', f'Row {row_index}')
-                    enrichment_data = st.session_state.workflow_data["data"][row_index]['company']['api_enrichment']
+                    enrichment_data = st.session_state.workflow_data["data"][row_index]['company']['enriched_lead']
                     st.markdown(f"**{company_name}:**")
                     st.json(enrichment_data)
 
-    st.write(get_workflow_data()["data"])
+    # st.write(get_workflow_data()["data"])
