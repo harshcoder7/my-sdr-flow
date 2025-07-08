@@ -210,7 +210,6 @@ def show_icp_profiling():
             "End Index",
             min_value=start_index,
             max_value=total_rows - 1,
-            value=min(start_index + 4, total_rows - 1),
             help="End index is inclusive"
         )
     
@@ -218,9 +217,11 @@ def show_icp_profiling():
     selected_count = end_index - start_index + 1
     st.info(f"📊 Selected range: {start_index} to {end_index} ({selected_count} rows)")
     
-    # Check if enriched data exists for selected range
+    # Check if enriched data exists and ICP analysis status for selected range
     has_enriched_data = False
     missing_enrichment_rows = []
+    already_analyzed_count = 0
+    missing_analysis_rows = []
     
     for i in range(start_index, end_index + 1):
         if i < total_rows:
@@ -229,15 +230,34 @@ def show_icp_profiling():
                 missing_enrichment_rows.append(i)
             else:
                 has_enriched_data = True
+                if 'icp_analysis' in row_data:
+                    already_analyzed_count += 1
+                else:
+                    missing_analysis_rows.append(i)
     
+    # Check for missing enrichment data
     if missing_enrichment_rows:
-        
         if not has_enriched_data:
             st.error("❌ No enriched data found in selected range. Please run Lead Enrichment first.")
             return
         else:
             st.warning(f"⚠️ Some rows ({len(missing_enrichment_rows)}) don't have enriched data. Please run Lead Enrichment first for rows: {', '.join(map(str, missing_enrichment_rows))}")
             return
+    
+    # Show ICP analysis status
+    button_disabled = False
+    button_help = None
+    
+    if already_analyzed_count > 0:
+        if already_analyzed_count == selected_count:
+            st.success(f"✅ All {selected_count} rows in the selected range already have ICP analysis!")
+            button_disabled = True
+            button_help = "All selected rows already have ICP analysis"
+        else:
+            st.warning(f"⚠️ {already_analyzed_count}/{selected_count} rows already have ICP analysis. Will process remaining {len(missing_analysis_rows)} rows.")
+            button_help = f"Will analyze {len(missing_analysis_rows)} remaining rows"
+    else:
+        st.info(f"🔄 {selected_count} rows ready for ICP analysis")
         
     # Validation for inputs
     if not product_context.strip():
@@ -248,7 +268,12 @@ def show_icp_profiling():
         st.error("❌ Target ICP definition is required!")
         return
     
-    if st.button("🎯 Start ICP Analysis", type="primary", disabled=selected_count <= 0):
+    if st.button(
+        "🎯 Start ICP Analysis", 
+        type="primary", 
+        disabled=selected_count <= 0 or button_disabled,
+        help=button_help
+    ):
         batch_icp_analysis(start_index, end_index, product_context, target_icp)
     
     st.markdown("---")
@@ -296,6 +321,11 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
         if not enriched_lead:
             skipped_analyses += 1
             st.session_state.workflow_data["data"][actual_index]['icp_analysis_error'] = "No enriched data available"
+            continue
+        
+        # Check if already analyzed
+        if 'icp_analysis' in row_data:
+            skipped_analyses += 1
             continue
         
         # Get domain from company data
@@ -347,8 +377,10 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
                         row = st.session_state.workflow_data["data"][row_index]
                         company_name = row.get('company', {}).get('Company Name', f'Row {row_index}')
                         
-                        if 'icp_analysis' in row:
+                        if 'icp_analysis' in row and j == i:  # Only show status for newly processed
                             st.success(f"✅ Row {row_index}: {company_name} - ICP Analysis Complete")
+                        elif 'icp_analysis' in row:
+                            st.info(f"⏭️ Row {row_index}: {company_name} - Already analyzed (skipped)")
                         elif 'icp_analysis_error' in row and row['icp_analysis_error'] == "No enriched data available":
                             st.warning(f"⏭️ Row {row_index}: {company_name} - Skipped (No enriched data)")
                         else:
@@ -369,7 +401,8 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             for i in range(total_rows):
                 row_index = start_index + i
                 if (row_index < len(st.session_state.workflow_data["data"]) and 
-                    'icp_analysis' in st.session_state.workflow_data["data"][row_index]):
+                    'icp_analysis' in st.session_state.workflow_data["data"][row_index] and
+                    'icp_analysis_timestamp' in st.session_state.workflow_data["data"][row_index]):  # Only show newly analyzed
                     
                     company_name = st.session_state.workflow_data["data"][row_index]['company'].get('Company Name', f'Row {row_index}')
                     icp_data = st.session_state.workflow_data["data"][row_index]['icp_analysis']
@@ -383,4 +416,28 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
                         break
     
     if skipped_analyses > 0:
-        st.warning(f"⚠️ {skipped_analyses} rows were skipped due to missing enriched data. Run Lead Enrichment first for those rows.")
+        # Count different skip reasons
+        already_analyzed_skipped = 0
+        no_enrichment_skipped = 0
+        
+        for i in range(total_rows):
+            row_index = start_index + i
+            if row_index < len(st.session_state.workflow_data["data"]):
+                row = st.session_state.workflow_data["data"][row_index]
+                if 'icp_analysis' in row and 'icp_analysis_timestamp' not in row:
+                    already_analyzed_skipped += 1
+                elif 'icp_analysis_error' in row and row['icp_analysis_error'] == "No enriched data available":
+                    no_enrichment_skipped += 1
+        
+        skip_message = f"ℹ️ {skipped_analyses} rows were skipped"
+        if already_analyzed_skipped > 0:
+            skip_message += f" ({already_analyzed_skipped} already analyzed"
+        if no_enrichment_skipped > 0:
+            if already_analyzed_skipped > 0:
+                skip_message += f", {no_enrichment_skipped} missing enrichment data"
+            else:
+                skip_message += f" ({no_enrichment_skipped} missing enrichment data"
+        if already_analyzed_skipped > 0 or no_enrichment_skipped > 0:
+            skip_message += ")"
+        
+        st.info(skip_message)

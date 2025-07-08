@@ -139,7 +139,6 @@ def show_lead_enrichment():
             "End Index",
             min_value=start_index,
             max_value=total_rows - 1,
-            value=min(start_index + 4, total_rows - 1),
             help="End index is inclusive"
         )
     
@@ -147,7 +146,39 @@ def show_lead_enrichment():
     selected_count = end_index - start_index + 1
     st.info(f"📊 Selected range: {start_index} to {end_index} ({selected_count} rows)")
     
-    if st.button("🚀 Start Batch Enrichment", type="primary", disabled=selected_count <= 0):
+    # Check if selected rows are already enriched
+    already_enriched_count = 0
+    missing_enrichment_rows = []
+    
+    for i in range(start_index, end_index + 1):
+        if i < total_rows:
+            row_data = workflow_data["data"][i]
+            if 'enriched_lead' in row_data:
+                already_enriched_count += 1
+            else:
+                missing_enrichment_rows.append(i)
+    
+    # Show enrichment status
+    if already_enriched_count > 0:
+        if already_enriched_count == selected_count:
+            st.success(f"✅ All {selected_count} rows in the selected range are already enriched!")
+            button_disabled = True
+            button_help = "All selected rows are already enriched"
+        else:
+            st.warning(f"⚠️ {already_enriched_count}/{selected_count} rows are already enriched. Will process remaining {len(missing_enrichment_rows)} rows.")
+            button_disabled = False
+            button_help = f"Will enrich {len(missing_enrichment_rows)} remaining rows"
+    else:
+        st.info(f"🔄 {selected_count} rows ready for enrichment")
+        button_disabled = False
+        button_help = None
+    
+    if st.button(
+        "🚀 Start Batch Enrichment", 
+        type="primary", 
+        disabled=selected_count <= 0 or button_disabled,
+        help=button_help
+    ):
         batch_enrich_workflow_data(start_index, end_index)
     
     st.markdown("---")
@@ -172,6 +203,7 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
     
     successful_enrichments = 0
     failed_enrichments = 0
+    skipped_enrichments = 0
     
     with results_container:
         st.markdown("### 📈 Enrichment Results")
@@ -185,6 +217,11 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
         progress_bar.progress(current_progress)
         company_name = row_data.get('company', {}).get('Company Name', f'Row {actual_index}')
         status_text.text(f"Processing {i + 1}/{total_rows}: {company_name}")
+        
+        # Check if already enriched
+        if 'enriched_lead' in row_data:
+            skipped_enrichments += 1
+            continue
         
         # Make API request
         api_response = make_api_request(row_data)
@@ -203,7 +240,7 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
         # Update results display every few iterations or on completion
         if (i + 1) % 5 == 0 or i == total_rows - 1:
             with results_placeholder.container():
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
                     st.metric("✅ Successful", successful_enrichments)
@@ -212,6 +249,9 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
                     st.metric("❌ Failed", failed_enrichments)
                 
                 with col3:
+                    st.metric("⏭️ Skipped", skipped_enrichments)
+                
+                with col4:
                     st.metric("📊 Progress", f"{i + 1}/{total_rows}")
                 
                 # Show recent results
@@ -223,28 +263,39 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
                         row = st.session_state.workflow_data["data"][row_index]
                         company_name = row.get('company', {}).get('Company Name', f'Row {row_index}')
                         
-                        if 'enriched_lead' in row:
+                        if 'enriched_lead' in row and j == i:  # Only show status for newly processed
                             st.success(f"✅ Row {row_index}: {company_name} - Enriched")
-                        else:
+                        elif 'enriched_lead' in row:
+                            st.info(f"⏭️ Row {row_index}: {company_name} - Already enriched (skipped)")
+                        elif 'api_enrichment_error' in row:
                             st.error(f"❌ Row {row_index}: {company_name} - Failed")
         
         # Small delay to show progress (remove in production)
         time.sleep(0.1)
     
     # Final completion message
-    status_text.text(f"✅ Batch enrichment completed! {successful_enrichments} successful, {failed_enrichments} failed")
+    status_text.text(f"✅ Batch enrichment completed! {successful_enrichments} successful, {failed_enrichments} failed, {skipped_enrichments} skipped")
     
     if successful_enrichments > 0:
         st.success(f"🎉 Successfully enriched {successful_enrichments} rows!")
         
         # Show sample of enriched data
         with st.expander("View Sample Enriched Data"):
-            for i in range(min(3, successful_enrichments)):
+            sample_count = 0
+            for i in range(total_rows):
                 row_index = start_index + i
-                if 'enriched_lead' in st.session_state.workflow_data["data"][row_index]:
+                if (row_index < len(st.session_state.workflow_data["data"]) and 
+                    'enriched_lead' in st.session_state.workflow_data["data"][row_index] and
+                    'enrichment_timestamp' in st.session_state.workflow_data["data"][row_index]):  # Only show newly enriched
+                    
                     enrichment_data = st.session_state.workflow_data["data"][row_index]['enriched_lead']
                     company_name = enrichment_data.get('Company', f'Row {row_index}')
                     st.markdown(f"**{company_name}:**")
                     st.json(enrichment_data)
-
-    st.write(get_workflow_data()["data"])
+                    
+                    sample_count += 1
+                    if sample_count >= 3:
+                        break
+    
+    if skipped_enrichments > 0:
+        st.info(f"ℹ️ {skipped_enrichments} rows were skipped as they were already enriched.")
