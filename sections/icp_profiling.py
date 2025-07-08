@@ -74,11 +74,16 @@ def make_icp_api_request(enriched_lead: dict, domain: str, product_context: str,
             "output_type": "chat",
             "input_type": "chat",
             "input_value": json.dumps(data),
+            "tweaks": {
+                "GoogleGenerativeAIModel-r4iC7" : {
+                    "model_name" : "gemini-2.5-flash"
+                }
+            }
         }
         
         # Make POST request - you'll need to update this URL with the actual ICP profiling endpoint
         response = requests.post(           
-            "https://flow.agenthive.tech/api/v1/run/icp-profiling",  # Update this URL
+            "https://flow.agenthive.tech/api/v1/run/icp-profiling",
             json=payload,
             headers={
                 'Content-Type': 'application/json',
@@ -143,6 +148,11 @@ def process_icp_api_response(api_response: dict) -> dict:
             "raw_response": api_response
         }
 
+def product_context_reset():
+    st.session_state.product_context_input = DEFAULT_PRODUCT_CONTEXT
+
+def target_icp_reset():
+    st.session_state.target_icp_input = DEFAULT_TARGET_ICP
 
 def show_icp_profiling():
     """Display the ICP Profiling section"""
@@ -151,6 +161,13 @@ def show_icp_profiling():
     
     # Check if workflow data is available
     metadata = get_workflow_metadata()
+    
+    # Initialize session state
+    if 'product_context' not in st.session_state:
+        st.session_state.product_context = DEFAULT_PRODUCT_CONTEXT
+    if 'target_icp' not in st.session_state:
+        st.session_state.target_icp = DEFAULT_TARGET_ICP
+
     
     if not metadata['has_data']:
         st.info("🔄 No workflow data available. Please convert CSV data first in the CSV Converter section.")
@@ -174,18 +191,27 @@ def show_icp_profiling():
     st.markdown("**Product Context**")
     product_context = st.text_area(
         "Describe your product/service:",
-        value=DEFAULT_PRODUCT_CONTEXT,
+        value=st.session_state.product_context,
         height=300,
-        help="Provide details about your product, its features, benefits, and value proposition"
+        help="Provide details about your product, its features, benefits, and value proposition",
+        key="product_context_input"
     )
+
+    # Reset button
+    if st.button("🔄 Reset to Default", type="secondary", on_click=product_context_reset, key="product-reset"):
+        pass
 
     st.markdown("**Target ICP**")
     target_icp = st.text_area(
         "Define your Ideal Customer Profile:",
-        value=DEFAULT_TARGET_ICP,
+        value=st.session_state.target_icp,
         height=300,
-        help="Describe your ideal customer including company size, industry, pain points, and decision makers"
+        help="Describe your ideal customer including company size, industry, pain points, and decision makers",
+        key="target_icp_input"
     )
+    
+    if st.button("🔄 Reset to Default", type="secondary", on_click=target_icp_reset, key="icp-reset"):
+        pass
     
     # Batch Processing Section
     st.markdown("---")
