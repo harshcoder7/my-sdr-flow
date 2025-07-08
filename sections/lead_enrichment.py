@@ -36,14 +36,14 @@ def make_api_request(row_data: dict) -> dict:
         }
         
         # Make POST request
-        response = requests.post(
-            "https://flow.agenthive.tech/api/v1/run/api-trial-v1",
+        response = requests.post(           
+            "https://flow.agenthive.tech/api/v1/run/lead-enrichment",
             json=payload,
             headers={
                 'Content-Type': 'application/json',
                 'x-api-key': os.getenv('AGENT_HIVE_API_KEY', '')
             },
-            timeout=60
+            timeout=180
         )
         
         if response.status_code == 200:
