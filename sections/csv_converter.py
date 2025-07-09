@@ -182,4 +182,5 @@ def show_expected_format():
         
         st.markdown("\n**Person Columns:**")
         for col in person_columns:
-            st.markdown(f"- {col}")
+            required_marker = " (Required)" if col in CSV_CONFIG["required_columns"] else ""
+            st.markdown(f"- {col}{required_marker}")

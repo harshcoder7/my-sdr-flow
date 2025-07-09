@@ -33,7 +33,7 @@ CSV_CONFIG = {
         "Name", "First name", "Last name", "Email", "Mobile Number",
         "Company Phone", "Title", "Linkedin", "Location"
     ],
-    "required_columns": ["Company Name"],
+    "required_columns": ["Company Name", "Company Domain", "Name", "Email", "Linkedin"],
     "output_filename": "converted_data.json"
 }
 

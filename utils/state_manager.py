@@ -280,9 +280,127 @@ def export_workflow_data() -> Optional[str]:
         return None
     
     try:
-        return json.dumps(st.session_state.workflow_data['data'], indent=2)
+        # Create a deep copy of the data to avoid modifying the original
+        import copy
+        export_data = copy.deepcopy(st.session_state.workflow_data['data'])
+        
+        # Remove numeric timestamp fields from each company
+        for company in export_data:
+            # Remove numeric timestamp fields if they exist
+            company.pop('enrichment_timestamp_numeric', None)
+            company.pop('icp_analysis_timestamp_numeric', None)
+            company.pop('intelligence_timestamp_numeric', None)
+        
+        return json.dumps(export_data, indent=2)
     except Exception as e:
         st.error(f"Error exporting data: {str(e)}")
+        return None
+
+def export_workflow_to_csv() -> Optional[str]:
+    """
+    Export workflow data as CSV string with specific headers using pandas
+    
+    Returns:
+        str or None: CSV string of the data if available
+    """
+    if not st.session_state.workflow_data:
+        return None
+    
+    try:
+        import pandas as pd
+        
+        # Prepare list to store all rows
+        rows = []
+        
+        for company_data in st.session_state.workflow_data['data']:
+            # Extract enriched lead data
+            enriched = company_data.get('enriched_lead', {})
+            given_company = company_data.get('company', {})
+            base_row = {
+                'Company': enriched.get('Company', '') or given_company.get('Company Name', ''),
+                'Overview': enriched.get('Overview', ''),
+                'Size': enriched.get('Size', ''),
+                'Revenue': enriched.get('Revenue', ''),
+                'Domain': enriched.get('Domain', '') or given_company.get('Company Domain', ''),
+                'Funding Information': enriched.get('Funding Information', ''),
+                'Latest Funding Round': enriched.get('Latest Funding Round', ''),
+                'Investors': enriched.get('Investors', ''),
+                'LinkedIn URL': enriched.get('LinkedIn URL', ''),
+                'sources': enriched.get('Sources', []) or ""
+            }
+            
+            # Extract ICP data
+            icp = company_data.get('icp_analysis', {})
+            icp_data = {
+                'ICP_Product Fit': icp.get('Product Fit', ''),
+                'ICP_ICP Score': icp.get('ICP Score', ''),
+                'ICP_Prospect Level': icp.get('Prospect Level', ''),
+                'ICP_Engagement Readiness': icp.get('Engagement Readiness', ''),
+                'ICP_Justification': icp.get('Justification', ''),
+                'ICP_Use Case': icp.get('Use Case', '')
+            }
+            base_row.update(icp_data)
+            
+            # Extract Market Intelligence data
+            market = company_data.get('market_intelligence', {})
+            market_data = {
+                'Market_Industry': market.get('Industry', ''),
+                'Market_Customer Segments': market.get('Customer Segments', ''),
+                'Market_Business Model': market.get('Business Model', ''),
+                'Market_Geographic Presence': market.get('Geographic Presence', ''),
+                'Market_Product Launches': market.get('Product Launches', ''),
+                'Market_Press & PR': market.get('Press & PR', ''),
+                'Market_Social Media Activity': market.get('Social Media Activity', '')
+            }
+            base_row.update(market_data)
+            
+            # Get people data and create a row for each person
+            people = company_data.get('people', [])
+            if not people:
+                # If no people, add one row with just company data
+                rows.append(base_row)
+            else:
+                # Add a row for each person with company data
+                for person in people:
+                    row = base_row.copy()
+                    person_data = {
+                        'Person_Name': person.get('Name', ''),
+                        'Person_First Name': person.get('First name', ''),
+                        'Person_Last Name': person.get('Last name', ''),
+                        'Person_Email': person.get('Email', ''),
+                        'Person_Title': person.get('Title', ''),
+                        'Person_Location': person.get('Location', ''),
+                        'Person_LinkedIn_URL': person.get('Linkedin', ''),
+                        'Person_Company_Phone': person.get('Company Phone', ''),
+                        'Person_Mobile_Phone': person.get('Mobile Number', ''),
+                    }
+                    row.update(person_data)
+                    rows.append(row)
+        
+        # Create DataFrame and return CSV
+        df = pd.DataFrame(rows)
+        # Reorder columns to match original order
+        columns = [
+            # Company and Enriched Lead fields
+            'Company', 'Overview', 'Size', 'Revenue', 'Domain', 'Funding Information', 
+            'Latest Funding Round', 'Investors', 'LinkedIn URL', 'sources',
+            # ICP fields
+            'ICP_Product Fit', 'ICP_ICP Score', 'ICP_Prospect Level', 
+            'ICP_Engagement Readiness', 'ICP_Justification', 'ICP_Use Case',
+            # Market Intelligence fields
+            'Market_Industry', 'Market_Customer Segments', 'Market_Business Model',
+            'Market_Geographic Presence', 'Market_Product Launches', 
+            'Market_Press & PR', 'Market_Social Media Activity',
+            # People fields
+            'Person_Name', 'Person_First Name', 'Person_Last Name',
+            'Person_Email', 'Person_Title', 'Person_Location',
+            'Person_LinkedIn_URL', 'Person_Company_Phone', 'Person_Mobile_Phone'
+        ]
+        df = df[columns]
+        return df.to_csv(index=False)
+        
+    except Exception as e:
+        st.error(f"Error exporting CSV data: {str(e)}")
         return None
 
 def show_workflow_status():
@@ -305,16 +423,31 @@ def show_workflow_status():
         # if 'analyzed_companies' in metadata and metadata['analyzed_companies'] > 0:
         #     st.sidebar.markdown(f"**🎯 ICP Analyzed:** {metadata['analyzed_companies']}/{metadata['total_companies']}")
         
-        # Export button
-        if st.sidebar.button("💾 Export Data", key="export_workflow"):
+        # Export buttons
+        col1, col2 = st.sidebar.columns(2)
+        
+        # JSON Export
+        if col1.button("💾 Export JSON", key="export_workflow_json"):
             json_data = export_workflow_data()
             if json_data:
-                st.sidebar.download_button(
+                col1.download_button(
                     label="⬇️ Download JSON",
                     data=json_data,
                     file_name=f"workflow_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                     mime="application/json",
-                    key="download_workflow"
+                    key="download_workflow_json"
+                )
+        
+        # CSV Export
+        if col2.button("📊 Export CSV", key="export_workflow_csv"):
+            csv_data = export_workflow_to_csv()
+            if csv_data:
+                col2.download_button(
+                    label="⬇️ Download CSV",
+                    data=csv_data,
+                    file_name=f"workflow_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    key="download_workflow_csv"
                 )
         
         # Clear data button
