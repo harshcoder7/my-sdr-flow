@@ -171,18 +171,12 @@ def show_icp_profiling():
     
     if not metadata['has_data']:
         st.info("🔄 No workflow data available. Please convert CSV data first in the CSV Converter section.")
-        st.markdown("---")
-        st.markdown("**What you can do here once you have data:**")
-        st.markdown("- 🎯 Analyze lead fit against your ICP")
-        st.markdown("- 📊 Score companies based on ICP criteria") 
-        st.markdown("- 🔍 Identify high-potential prospects")
-        st.markdown("- 📈 Prioritize outreach efforts")
         return
     
     # Show data preview
     st.success(f"✅ Workflow data loaded from {metadata['data_source']}")
     
-    with st.expander("📊 View Data Preview", expanded=False):
+    with st.expander("📊 View Saved Data Preview", expanded=False):
         show_data_preview()
     
     # ICP Configuration Section

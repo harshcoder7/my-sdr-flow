@@ -123,18 +123,12 @@ def show_market_intelligence():
     
     if not metadata['has_data']:
         st.info("🔄 No workflow data available. Please convert CSV data first in the CSV Converter section.")
-        st.markdown("---")
-        st.markdown("**What you can do here once you have data:**")
-        st.markdown("- 📊 Analyze market trends and signals")
-        st.markdown("- 🎯 Identify engagement opportunities") 
-        st.markdown("- 📈 Monitor industry developments")
-        st.markdown("- 🔍 Track competitive intelligence")
         return
     
     # Show data preview
     st.success(f"✅ Workflow data loaded from {metadata['data_source']}")
     
-    with st.expander("📊 View Data Preview", expanded=False):
+    with st.expander("📊 View Saved Data Preview", expanded=False):
         show_data_preview()
              
     # Batch Processing Section
@@ -325,7 +319,7 @@ def batch_analyze_market_intelligence(start_index: int, end_index: int):
     status_text.text(f"✅ Market intelligence analysis completed! {successful_analyses} successful, {failed_analyses} failed, {skipped_analyses} skipped")
     
     # Update metadata counters
-    update_workflow_metadata()
+    # update_workflow_metadata()
     
     if successful_analyses > 0:
         st.success(f"🎉 Successfully analyzed {successful_analyses} rows!")

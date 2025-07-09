@@ -468,7 +468,7 @@ def show_data_preview():
         st.warning("No workflow data available")
         return
     
-    st.subheader("📊 Saved Workflow Data Preview")
+    # st.subheader("📊 Saved Workflow Data Preview")
     
     companies_data = data['data']
     metadata = get_workflow_metadata()
@@ -484,7 +484,7 @@ def show_data_preview():
     
     # Show enrichment/analysis/intelligence status
     if metadata.get('enriched_companies', 0) > 0 or metadata.get('analyzed_companies', 0) > 0 or metadata.get('intelligence_companies', 0) > 0:
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 0.2])
         with col1:
             if metadata.get('enriched_companies', 0) > 0:
                 st.metric("✨ Enriched", f"{metadata['enriched_companies']}/{metadata['total_companies']}")
@@ -494,6 +494,9 @@ def show_data_preview():
         with col3:
             if metadata.get('intelligence_companies', 0) > 0:
                 st.metric("📊 Intelligence", f"{metadata['intelligence_companies']}/{metadata['total_companies']}")
+        with col4:
+            if st.button("🔄", help="Refresh metrics"):
+                update_workflow_metadata()
     
     # Show first few companies
     # with st.expander("👀 Preview Data (First 3 Companies)"):
@@ -553,3 +556,5 @@ def update_workflow_metadata():
         'intelligence_companies': intelligence_count,
         'last_saved': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
+
+    st.rerun()  # Rerun to update UI with new metadata

@@ -105,18 +105,12 @@ def show_lead_enrichment():
     
     if not metadata['has_data']:
         st.info("🔄 No workflow data available. Please convert CSV data first in the CSV Converter section.")
-        st.markdown("---")
-        st.markdown("**What you can do here once you have data:**")
-        st.markdown("- ✨ Enrich company information")
-        st.markdown("- 📧 Generate personalized email templates") 
-        st.markdown("- 🔍 Research prospects")
-        st.markdown("- 📊 Analyze lead quality")
         return
     
     # Show data preview
     st.success(f"✅ Workflow data loaded from {metadata['data_source']}")
     
-    with st.expander("📊 View Data Preview", expanded=False):
+    with st.expander("📊 View Saved Data Preview", expanded=False):
         show_data_preview()
              
     # Batch Processing Section
