@@ -19,7 +19,10 @@ def initialize_state():
             'data_source': None,
             'total_companies': 0,
             'total_records': 0,
-            'has_data': False
+            'has_data': False,
+            'enriched_companies': 0,
+            'analyzed_companies': 0,
+            'intelligence_companies': 0
         }
 
 def validate_json_structure(data: List[Dict]) -> tuple[bool, str]:
@@ -40,7 +43,7 @@ def validate_json_structure(data: List[Dict]) -> tuple[bool, str]:
             return False, "JSON list cannot be empty"
         
         required_fields = ['company', 'people']
-        optional_fields = ['enriched_lead', 'icp_analysis', 'enrichment_timestamp', 'icp_analysis_timestamp']
+        optional_fields = ['enriched_lead', 'icp_analysis', 'market_intelligence', 'enrichment_timestamp', 'icp_analysis_timestamp', 'intelligence_timestamp']
         
         for i, company_obj in enumerate(data):
             if not isinstance(company_obj, dict):
@@ -70,6 +73,9 @@ def validate_json_structure(data: List[Dict]) -> tuple[bool, str]:
             
             if 'icp_analysis' in company_obj and not isinstance(company_obj['icp_analysis'], dict):
                 return False, f"'icp_analysis' field must be a dictionary at index {i}"
+            
+            if 'market_intelligence' in company_obj and not isinstance(company_obj['market_intelligence'], dict):
+                return False, f"'market_intelligence' field must be a dictionary at index {i}"
         
         return True, "JSON structure is valid"
     
@@ -107,9 +113,10 @@ def load_workflow_from_json(json_data: str) -> bool:
         total_companies = len(data)
         total_records = sum(len(company.get('people', [])) for company in data)
         
-        # Count enriched and analyzed companies
+        # Count enriched, analyzed, and market intelligence companies
         enriched_count = sum(1 for company in data if 'enriched_lead' in company)
         analyzed_count = sum(1 for company in data if 'icp_analysis' in company)
+        intelligence_count = sum(1 for company in data if 'market_intelligence' in company)
         
         st.session_state.workflow_metadata = {
             'last_saved': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -118,7 +125,8 @@ def load_workflow_from_json(json_data: str) -> bool:
             'total_records': total_records,
             'has_data': True,
             'enriched_companies': enriched_count,
-            'analyzed_companies': analyzed_count
+            'analyzed_companies': analyzed_count,
+            'intelligence_companies': intelligence_count
         }
         
         return True
@@ -157,14 +165,17 @@ def show_json_upload_section():
                         preview_data = json.loads(json_content)
                         st.sidebar.write(f"Companies: {len(preview_data)}")
                         if len(preview_data) > 0:
-                            # Check for enriched/analyzed data
+                            # Check for enriched/analyzed/intelligence data
                             enriched_count = sum(1 for c in preview_data if 'enriched_lead' in c)
                             analyzed_count = sum(1 for c in preview_data if 'icp_analysis' in c)
+                            intelligence_count = sum(1 for c in preview_data if 'market_intelligence' in c)
                             
                             if enriched_count > 0:
                                 st.sidebar.write(f"✅ Enriched: {enriched_count}/{len(preview_data)}")
                             if analyzed_count > 0:
                                 st.sidebar.write(f"🎯 Analyzed: {analyzed_count}/{len(preview_data)}")
+                            if intelligence_count > 0:
+                                st.sidebar.write(f"📊 Intelligence: {intelligence_count}/{len(preview_data)}")
                                 
                     except Exception as e:
                         st.sidebar.error(f"Error previewing: {str(e)}")
@@ -205,9 +216,10 @@ def save_workflow_data(data: List[Dict], source: str = "CSV Converter") -> bool:
         total_companies = len(data)
         total_records = sum(len(company.get('people', [])) for company in data)
         
-        # Count enriched and analyzed companies
+        # Count enriched, analyzed, and market intelligence companies
         enriched_count = sum(1 for company in data if 'enriched_lead' in company)
         analyzed_count = sum(1 for company in data if 'icp_analysis' in company)
+        intelligence_count = sum(1 for company in data if 'market_intelligence' in company)
         
         st.session_state.workflow_metadata = {
             'last_saved': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -216,7 +228,8 @@ def save_workflow_data(data: List[Dict], source: str = "CSV Converter") -> bool:
             'total_records': total_records,
             'has_data': True,
             'enriched_companies': enriched_count,
-            'analyzed_companies': analyzed_count
+            'analyzed_companies': analyzed_count,
+            'intelligence_companies': intelligence_count
         }
         
         return True
@@ -252,7 +265,8 @@ def clear_workflow_data():
         'total_records': 0,
         'has_data': False,
         'enriched_companies': 0,
-        'analyzed_companies': 0
+        'analyzed_companies': 0,
+        'intelligence_companies': 0
     }
 
 def export_workflow_data() -> Optional[str]:
@@ -335,20 +349,23 @@ def show_data_preview():
     with col3:
         st.metric("Source", metadata['data_source'])
     
-    # Show enrichment/analysis status
-    if metadata.get('enriched_companies', 0) > 0 or metadata.get('analyzed_companies', 0) > 0:
-        col1, col2 = st.columns(2)
+    # Show enrichment/analysis/intelligence status
+    if metadata.get('enriched_companies', 0) > 0 or metadata.get('analyzed_companies', 0) > 0 or metadata.get('intelligence_companies', 0) > 0:
+        col1, col2, col3 = st.columns(3)
         with col1:
             if metadata.get('enriched_companies', 0) > 0:
                 st.metric("✨ Enriched", f"{metadata['enriched_companies']}/{metadata['total_companies']}")
         with col2:
             if metadata.get('analyzed_companies', 0) > 0:
                 st.metric("🎯 ICP Analyzed", f"{metadata['analyzed_companies']}/{metadata['total_companies']}")
+        with col3:
+            if metadata.get('intelligence_companies', 0) > 0:
+                st.metric("📊 Intelligence", f"{metadata['intelligence_companies']}/{metadata['total_companies']}")
     
     # Show first few companies
-    with st.expander("👀 Preview Data (First 3 Companies)"):
-        preview_data = companies_data[:3] if len(companies_data) >= 3 else companies_data
-        st.code(json.dumps(preview_data, indent=2), language="json")
+    # with st.expander("👀 Preview Data (First 3 Companies)"):
+    #     preview_data = companies_data[:3] if len(companies_data) >= 3 else companies_data
+    #     st.code(json.dumps(preview_data, indent=2), language="json")
 
 def get_companies_list() -> List[str]:
     """
@@ -383,3 +400,23 @@ def get_company_data(company_name: str) -> Optional[Dict]:
             return company
     
     return None
+
+def update_workflow_metadata():
+    """Update workflow metadata counters based on current data"""
+    if not st.session_state.workflow_data or 'data' not in st.session_state.workflow_data:
+        return
+    
+    data = st.session_state.workflow_data['data']
+    
+    # Count enriched, analyzed, and market intelligence companies
+    enriched_count = sum(1 for company in data if 'enriched_lead' in company)
+    analyzed_count = sum(1 for company in data if 'icp_analysis' in company)
+    intelligence_count = sum(1 for company in data if 'market_intelligence' in company)
+    
+    # Update metadata
+    st.session_state.workflow_metadata.update({
+        'enriched_companies': enriched_count,
+        'analyzed_companies': analyzed_count,
+        'intelligence_companies': intelligence_count,
+        'last_saved': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })

@@ -16,7 +16,8 @@ APP_CONFIG = {
 NAVIGATION_SECTIONS = [
     "CSV to JSON Converter",
     "Lead Enrichment",
-    "ICP Profiling", 
+    "ICP Profiling",
+    "Market Intelligence",
 ]
 
 # CSV Converter Configuration
