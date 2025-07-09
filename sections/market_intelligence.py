@@ -32,6 +32,11 @@ def make_api_request(row_data: dict) -> dict:
         if not enriched_lead:
             return {"error": "No enriched lead data available"}
         
+        # make a copy and remove sources from enriched_lead before sending to API
+        enriched_lead = enriched_lead.copy()
+        if 'Sources' in enriched_lead:
+            enriched_lead.pop('Sources', None)
+        
         payload = {
            "output_type" : "chat",
            "input_type" : "chat",
@@ -226,6 +231,9 @@ def batch_analyze_market_intelligence(start_index: int, end_index: int):
         start_index (int): Starting index
         end_index (int): Ending index (inclusive)
     """
+    # Record batch start time for filtering newly processed data
+    batch_start_time = time.time()
+    
     # Get workflow data from session state
     workflow_data = get_workflow_data()["data"]
     selected_rows = workflow_data[start_index:end_index + 1]
@@ -273,6 +281,7 @@ def batch_analyze_market_intelligence(start_index: int, end_index: int):
             processed_data = process_api_response(api_response)
             st.session_state.workflow_data["data"][actual_index]['market_intelligence'] = processed_data
             st.session_state.workflow_data["data"][actual_index]['intelligence_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.workflow_data["data"][actual_index]['intelligence_timestamp_numeric'] = time.time()
             successful_analyses += 1
         else:
             # Store error in session state
@@ -328,7 +337,8 @@ def batch_analyze_market_intelligence(start_index: int, end_index: int):
                 row_index = start_index + i
                 if (row_index < len(st.session_state.workflow_data["data"]) and 
                     'market_intelligence' in st.session_state.workflow_data["data"][row_index] and
-                    'intelligence_timestamp' in st.session_state.workflow_data["data"][row_index]):  # Only show newly analyzed
+                    'intelligence_timestamp_numeric' in st.session_state.workflow_data["data"][row_index] and
+                    st.session_state.workflow_data["data"][row_index]['intelligence_timestamp_numeric'] > batch_start_time):  # Only show newly analyzed
                     
                     intelligence_data = st.session_state.workflow_data["data"][row_index]['market_intelligence']
                     company_name = intelligence_data.get('Company', row_data.get('company', {}).get('Company Name', f'Row {row_index}'))

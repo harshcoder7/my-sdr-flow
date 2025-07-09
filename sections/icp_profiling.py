@@ -352,6 +352,9 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
         target_icp (str): Target ICP definition
         re_analyze_existing (bool): Whether to re-analyze rows that already have ICP analysis
     """
+    # Record batch start time for filtering newly processed data
+    batch_start_time = time.time()
+    
     # Get workflow data from session state
     workflow_data = get_workflow_data()["data"]
     selected_rows = workflow_data[start_index:end_index + 1]
@@ -408,6 +411,7 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             processed_data = process_icp_api_response(api_response)
             st.session_state.workflow_data["data"][actual_index]['icp_analysis'] = processed_data
             st.session_state.workflow_data["data"][actual_index]['icp_analysis_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.workflow_data["data"][actual_index]['icp_analysis_timestamp_numeric'] = time.time()
                 
             # Remove any previous error if re-analyzing
             if 'icp_analysis_error' in st.session_state.workflow_data["data"][actual_index]:
@@ -480,7 +484,9 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
             for i in range(total_rows):
                 row_index = start_index + i
                 if (row_index < len(st.session_state.workflow_data["data"]) and 
-                    'icp_analysis' in st.session_state.workflow_data["data"][row_index]):
+                    'icp_analysis' in st.session_state.workflow_data["data"][row_index] and
+                    'icp_analysis_timestamp_numeric' in st.session_state.workflow_data["data"][row_index] and
+                    st.session_state.workflow_data["data"][row_index]['icp_analysis_timestamp_numeric'] > batch_start_time):
                     
                     # For re-analysis, show all analyzed rows; for new analysis, show all as they're all new
                     company_name = st.session_state.workflow_data["data"][row_index]['company'].get('Company Name', f'Row {row_index}')

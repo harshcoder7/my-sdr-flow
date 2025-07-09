@@ -191,6 +191,9 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
         start_index (int): Starting index
         end_index (int): Ending index (inclusive)
     """
+    # Record batch start time for filtering newly processed data
+    batch_start_time = time.time()
+    
     # Get workflow data from session state
     workflow_data = get_workflow_data()["data"]
     selected_rows = workflow_data[start_index:end_index + 1]
@@ -231,6 +234,7 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
             processed_data = process_api_response(api_response)
             st.session_state.workflow_data["data"][actual_index]['enriched_lead'] = processed_data
             st.session_state.workflow_data["data"][actual_index]['enrichment_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.workflow_data["data"][actual_index]['enrichment_timestamp_numeric'] = time.time()
             successful_enrichments += 1
         else:
             # Store error in session state
@@ -286,7 +290,8 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
                 row_index = start_index + i
                 if (row_index < len(st.session_state.workflow_data["data"]) and 
                     'enriched_lead' in st.session_state.workflow_data["data"][row_index] and
-                    'enrichment_timestamp' in st.session_state.workflow_data["data"][row_index]):  # Only show newly enriched
+                    'enrichment_timestamp_numeric' in st.session_state.workflow_data["data"][row_index] and
+                    st.session_state.workflow_data["data"][row_index]['enrichment_timestamp_numeric'] > batch_start_time):  # Only show newly enriched
                     
                     enrichment_data = st.session_state.workflow_data["data"][row_index]['enriched_lead']
                     company_name = enrichment_data.get('Company', f'Row {row_index}')
