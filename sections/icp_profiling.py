@@ -443,7 +443,14 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
                         row = st.session_state.workflow_data["data"][row_index]
                         company_name = row.get('company', {}).get('Company Name', f'Row {row_index}')
                         
-                        if 'icp_analysis' in row and j == i:  # Only show status for newly processed
+                        # Check if row was analyzed in this batch using timestamp
+                        is_newly_analyzed = (
+                            'icp_analysis' in row and 
+                            'icp_analysis_timestamp_numeric' in row and 
+                            row['icp_analysis_timestamp_numeric'] > batch_start_time
+                        )
+                        
+                        if is_newly_analyzed:
                             if re_analyze_existing:
                                 st.success(f"🔄 Row {row_index}: {company_name} - ICP Analysis Re-completed")
                             else:

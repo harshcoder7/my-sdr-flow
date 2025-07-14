@@ -38,12 +38,13 @@ def make_api_request(row_data: dict) -> dict:
         # Make POST request
         response = requests.post(           
             "https://flow.agenthive.tech/api/v1/run/lead-enrichment",
+            # "http://localhost:7860/api/v1/run/lead-enrichment",
             json=payload,
             headers={
                 'Content-Type': 'application/json',
                 'x-api-key': os.getenv('AGENT_HIVE_API_KEY', '')
             },
-            timeout=180
+            timeout=300
         )
         
         if response.status_code == 200:
@@ -266,7 +267,7 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
                         elif 'enriched_lead' in row:
                             st.info(f"⏭️ Row {row_index}: {company_name} - Already enriched (skipped)")
                         elif 'api_enrichment_error' in row:
-                            st.error(f"❌ Row {row_index}: {company_name} - Failed")
+                            st.error(f"❌ Row {row_index}: {company_name} - {row['api_enrichment_error'] if 'api_enrichment_error' in row else 'Unknown error'}")
         
         # # Small delay to show progress (remove in production)
         # time.sleep(0.1)

@@ -308,7 +308,14 @@ def batch_analyze_market_intelligence(start_index: int, end_index: int):
                         row = st.session_state.workflow_data["data"][row_index]
                         company_name = row.get('company', {}).get('Company Name', f'Row {row_index}')
                         
-                        if 'market_intelligence' in row and j == i:  # Only show status for newly processed
+                        # Check if row was analyzed in this batch using timestamp
+                        is_newly_analyzed = (
+                            'market_intelligence' in row and 
+                            'intelligence_timestamp_numeric' in row and 
+                            row['intelligence_timestamp_numeric'] > batch_start_time
+                        )
+                        
+                        if is_newly_analyzed:
                             st.success(f"✅ Row {row_index}: {company_name} - Analysis complete")
                         elif 'market_intelligence' in row:
                             st.info(f"⏭️ Row {row_index}: {company_name} - Already analyzed (skipped)")
