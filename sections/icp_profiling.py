@@ -393,6 +393,10 @@ def batch_icp_analysis(start_index: int, end_index: int, product_context: str, t
                  row_data.get('company', {}).get('Company Website') or
                  enriched_lead.get('Domain', ''))
         
+        # Clear any existing errors before making new API request
+        if 'icp_analysis_error' in st.session_state.workflow_data["data"][actual_index]:
+            del st.session_state.workflow_data["data"][actual_index]['icp_analysis_error']
+
         # Make ICP API request
         api_response = make_icp_api_request(enriched_lead, domain, product_context, target_icp)
         

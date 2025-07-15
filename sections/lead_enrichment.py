@@ -221,6 +221,10 @@ def batch_enrich_workflow_data(start_index: int, end_index: int):
             skipped_enrichments += 1
             continue
         
+        # Clear any existing errors before making new API request
+        if 'api_enrichment_error' in st.session_state.workflow_data["data"][actual_index]:
+            del st.session_state.workflow_data["data"][actual_index]['api_enrichment_error']
+        
         # Make API request
         api_response = make_api_request(row_data)
         

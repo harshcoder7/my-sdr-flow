@@ -267,6 +267,10 @@ def batch_analyze_market_intelligence(start_index: int, end_index: int):
             skipped_analyses += 1
             continue
         
+        # Clear any existing errors before making new API request
+        if 'market_intelligence_error' in st.session_state.workflow_data["data"][actual_index]:
+            del st.session_state.workflow_data["data"][actual_index]['market_intelligence_error']
+
         # Make API request
         api_response = make_api_request(row_data)
         
