@@ -23,7 +23,7 @@ NAVIGATION_SECTIONS = [
 # CSV Converter Configuration
 CSV_CONFIG = {
     "company_columns": [
-        "Company Name", "Company Domain", "Company Website", "Company Employee Count",
+        "Company Name", "Company Domain", "Company Employee Count",
         "Company Employee Count Range", "Company Founded", "Company Industry",
         "Company Type", "Company Headquarters", "Company Revenue Range",
         "Company Linkedin Url", "Company Crunchbase Url", "Company Funding Rounds",
