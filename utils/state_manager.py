@@ -498,6 +498,49 @@ def show_data_preview():
             if st.button("🔄", help="Refresh metrics"):
                 update_workflow_metadata()
     
+    # Show non-processed indexes for each process type
+    non_processed = get_non_processed_indexes()
+    
+    if any(non_processed.values()):  # Only show if there are non-processed items
+        st.subheader("🔍 Non-Processed Companies")
+        
+        # Create expandable sections for each process type
+        if non_processed['enriched']:
+            with st.expander(f"❌ Not Enriched ({len(non_processed['enriched'])} companies)"):
+                st.info(f"**Indexes:** {format_index_ranges(non_processed['enriched'])}")
+                
+                # # Show detailed list with company names
+                # if st.checkbox("Show company names", key="show_enriched_names"):
+                #     company_names = get_company_names_for_indexes(non_processed['enriched'])
+                #     for idx in non_processed['enriched'][:10]:  # Show first 10
+                #         st.write(f"• **{idx}:** {company_names.get(idx, 'Unknown')}")
+                #     if len(non_processed['enriched']) > 10:
+                #         st.write(f"... and {len(non_processed['enriched']) - 10} more")
+        
+        if non_processed['icp_analyzed']:
+            with st.expander(f"❌ Not ICP Analyzed ({len(non_processed['icp_analyzed'])} companies)"):
+                st.info(f"**Indexes:** {format_index_ranges(non_processed['icp_analyzed'])}")
+                
+                # # Show detailed list with company names
+                # if st.checkbox("Show company names", key="show_icp_names"):
+                #     company_names = get_company_names_for_indexes(non_processed['icp_analyzed'])
+                #     for idx in non_processed['icp_analyzed'][:10]:  # Show first 10
+                #         st.write(f"• **{idx}:** {company_names.get(idx, 'Unknown')}")
+                #     if len(non_processed['icp_analyzed']) > 10:
+                #         st.write(f"... and {len(non_processed['icp_analyzed']) - 10} more")
+        
+        if non_processed['intelligence']:
+            with st.expander(f"❌ No Market Intelligence ({len(non_processed['intelligence'])} companies)"):
+                st.info(f"**Indexes:** {format_index_ranges(non_processed['intelligence'])}")
+                
+                # Show detailed list with company names
+                # if st.checkbox("Show company names", key="show_intelligence_names"):
+                #     company_names = get_company_names_for_indexes(non_processed['intelligence'])
+                #     for idx in non_processed['intelligence'][:10]:  # Show first 10
+                #         st.write(f"• **{idx}:** {company_names.get(idx, 'Unknown')}")
+                #     if len(non_processed['intelligence']) > 10:
+                #         st.write(f"... and {len(non_processed['intelligence']) - 10} more")
+    
     # Show first few companies
     # with st.expander("👀 Preview Data (First 3 Companies)"):
     #     preview_data = companies_data[:3] if len(companies_data) >= 3 else companies_data
@@ -558,3 +601,106 @@ def update_workflow_metadata():
     })
 
     st.rerun()  # Rerun to update UI with new metadata
+
+def format_index_ranges(indexes: List[int]) -> str:
+    """
+    Format a list of indexes into a readable string with ranges and discrete values
+    
+    Args:
+        indexes: List of indexes to format
+    
+    Returns:
+        str: Formatted string (e.g., "1-5, 8, 10-12")
+    """
+    if not indexes:
+        return "None"
+    
+    # Sort the indexes
+    sorted_indexes = sorted(indexes)
+    
+    ranges = []
+    start = sorted_indexes[0]
+    end = sorted_indexes[0]
+    
+    for i in range(1, len(sorted_indexes)):
+        current = sorted_indexes[i]
+        
+        # If current index is consecutive, extend the range
+        if current == end + 1:
+            end = current
+        else:
+            # Add the previous range/value to results
+            if start == end:
+                ranges.append(str(start))
+            else:
+                ranges.append(f"{start}-{end}")
+            
+            # Start a new range
+            start = current
+            end = current
+    
+    # Add the last range/value
+    if start == end:
+        ranges.append(str(start))
+    else:
+        ranges.append(f"{start}-{end}")
+    
+    return ", ".join(ranges)
+
+def get_non_processed_indexes() -> Dict[str, List[int]]:
+    """
+    Get indexes of companies that haven't been processed for each process type
+    
+    Returns:
+        Dict with keys 'enriched', 'icp_analyzed', 'intelligence' and lists of non-processed indexes
+    """
+    data = get_workflow_data()
+    if not data:
+        return {'enriched': [], 'icp_analyzed': [], 'intelligence': []}
+    
+    companies_data = data['data']
+    total_companies = len(companies_data)
+    
+    # Get indexes of non-processed companies for each type
+    non_enriched = []
+    non_icp_analyzed = []
+    non_intelligence = []
+    
+    for i, company in enumerate(companies_data):
+        if 'enriched_lead' not in company:
+            non_enriched.append(i)
+        if 'icp_analysis' not in company:
+            non_icp_analyzed.append(i)
+        if 'market_intelligence' not in company:
+            non_intelligence.append(i)
+    
+    return {
+        'enriched': non_enriched,
+        'icp_analyzed': non_icp_analyzed,
+        'intelligence': non_intelligence
+    }
+
+def get_company_names_for_indexes(indexes: List[int]) -> Dict[int, str]:
+    """
+    Get company names for given indexes
+    
+    Args:
+        indexes: List of company indexes
+    
+    Returns:
+        Dict mapping index to company name
+    """
+    data = get_workflow_data()
+    if not data:
+        return {}
+    
+    companies_data = data['data']
+    result = {}
+    
+    for index in indexes:
+        if 0 <= index < len(companies_data):
+            company = companies_data[index]
+            company_name = company.get('company', {}).get('Company Name', f'Company {index}')
+            result[index] = company_name
+    
+    return result
