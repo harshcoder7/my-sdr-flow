@@ -36,6 +36,11 @@ class PlaygroundAPIClient:
         Returns:
             dict: API response or error information
         """
+        if (not input_data) or (input_data == "{}"):
+            return {
+                "success": False,
+                "error": "Input data cannot be empty"
+            }
         try:
             # Prepare payload
             payload = {

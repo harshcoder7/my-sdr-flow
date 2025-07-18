@@ -28,17 +28,13 @@ def show_playground():
         show_enrichment_playground()
     
     with tab2:
-        # show_icp_profiling_playground()
-        pass
+        show_icp_profiling_playground()
     
     with tab3:
-        # show_market_intelligence_playground()
-        pass
-    
+        show_market_intelligence_playground()
+        
     with tab4:
-        # show_champion_scoring_playground()
-        pass
+        show_champion_scoring_playground()
 
     with tab5:
-        # show_person_engagement_playground()
-        pass
+        show_person_engagement_playground()
