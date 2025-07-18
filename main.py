@@ -7,6 +7,7 @@ from sections.csv_converter import show_csv_converter
 from sections.lead_enrichment import show_lead_enrichment
 from sections.market_intelligence import show_market_intelligence
 from sections.icp_profiling import show_icp_profiling
+from sections.playground import show_playground
 
 def main():
     """Main application function"""
@@ -34,6 +35,8 @@ def main():
         show_market_intelligence()
     elif section == "ICP Profiling":
         show_icp_profiling()
+    elif section == "API Playground":
+        show_playground()
   
 
 if __name__ == "__main__":

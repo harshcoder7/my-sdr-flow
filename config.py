@@ -18,6 +18,7 @@ NAVIGATION_SECTIONS = [
     "Lead Enrichment",
     "ICP Profiling",
     "Market Intelligence",
+    "API Playground",
 ]
 
 # CSV Converter Configuration
