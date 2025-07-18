@@ -175,22 +175,6 @@ def show_icp_profiling_playground():
                 st.markdown("#### 📊 ICP Analysis Results")
                 processed_data = response["processed_data"]
                 
-                # Display key metrics prominently if data is valid
-                if isinstance(processed_data, dict) and "icp_status" not in processed_data:
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        if "icp_score" in processed_data:
-                            st.metric("ICP Score", f"{processed_data['icp_score']}/5")
-                    
-                    with col2:
-                        if "product_fit" in processed_data:
-                            st.metric("Product Fit", processed_data["product_fit"])
-                    
-                    with col3:
-                        if "prospect_level" in processed_data:
-                            st.metric("Prospect Level", processed_data["prospect_level"])
-                
                 # Display full processed data
                 st.json(processed_data)
             else:
@@ -201,22 +185,6 @@ def show_icp_profiling_playground():
                     if "```json" in content:
                         json_content = content.split("```json")[1].split("```")[0].strip()
                         parsed_content = json.loads(json_content)
-                        
-                        # Display key metrics prominently
-                        if isinstance(parsed_content, dict):
-                            col1, col2, col3 = st.columns(3)
-                            
-                            with col1:
-                                if "icp_score" in parsed_content:
-                                    st.metric("ICP Score", f"{parsed_content['icp_score']}/5")
-                            
-                            with col2:
-                                if "product_fit" in parsed_content:
-                                    st.metric("Product Fit", parsed_content["product_fit"])
-                            
-                            with col3:
-                                if "prospect_level" in parsed_content:
-                                    st.metric("Prospect Level", parsed_content["prospect_level"])
                         
                         # Display full JSON
                         st.json(parsed_content)
